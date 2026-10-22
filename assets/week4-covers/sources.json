@@ -1,0 +1,74 @@
+[
+  {
+    "id": "outdoors",
+    "title": "A Group of Friends Hiking Together",
+    "source": "https://www.pexels.com/photo/a-group-of-friends-hiking-together-11724800/",
+    "image_url": "https://images.pexels.com/photos/11724800/pexels-photo-11724800.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/outdoors.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 177738
+  },
+  {
+    "id": "food",
+    "title": "People Sharing a Pizza",
+    "source": "https://www.pexels.com/photo/people-sharing-a-pizza-9543813/",
+    "image_url": "https://images.pexels.com/photos/9543813/pexels-photo-9543813.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/food.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 159745
+  },
+  {
+    "id": "arts",
+    "title": "People in an Art Workshop",
+    "source": "https://www.pexels.com/photo/people-in-an-art-workshop-6146655/",
+    "image_url": "https://images.pexels.com/photos/6146655/pexels-photo-6146655.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/arts.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 208697
+  },
+  {
+    "id": "sports",
+    "title": "Men Playing Basketball on Open Court",
+    "source": "https://www.pexels.com/photo/men-playing-basketball-on-open-court-2820903/",
+    "image_url": "https://images.pexels.com/photos/2820903/pexels-photo-2820903.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/sports.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 133151
+  },
+  {
+    "id": "gaming",
+    "title": "Friends Playing on the Table",
+    "source": "https://www.pexels.com/photo/friends-playing-on-the-table-8111359/",
+    "image_url": "https://images.pexels.com/photos/8111359/pexels-photo-8111359.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/gaming.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 118770
+  },
+  {
+    "id": "study",
+    "title": "Students Studying Inside the Library",
+    "source": "https://www.pexels.com/photo/students-studying-inside-the-library-8199659/",
+    "image_url": "https://images.pexels.com/photos/8199659/pexels-photo-8199659.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/study.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 120010
+  },
+  {
+    "id": "music",
+    "title": "Friends Spending Time Together with Guitar",
+    "source": "https://www.pexels.com/photo/friends-spending-time-together-with-guitar-3777729/",
+    "image_url": "https://images.pexels.com/photos/3777729/pexels-photo-3777729.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/music.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 129401
+  },
+  {
+    "id": "city",
+    "title": "Central Park and Manhattan",
+    "source": "https://www.pexels.com/photo/aerial-photography-of-central-park-and-buildings-in-new-york-city-11317199/",
+    "image_url": "https://images.pexels.com/photos/11317199/pexels-photo-11317199.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "path": "/week4-covers/city.jpg",
+    "license": "https://www.pexels.com/license/",
+    "bytes": 236456
+  }
+]
