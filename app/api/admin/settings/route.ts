@@ -1,5 +1,7 @@
 import {requireAdmin,sameOrigin,errorResponse} from '@/lib/access';
 import {authClient} from '@/lib/supabase';
+import {validateGenerationModel} from '@/lib/model-validation';
+import type {Row} from '@/lib/week7';
 export async function POST(request:Request){try{
  sameOrigin(request);await requireAdmin();
  if(Number(request.headers.get('content-length'))>40000)throw Error('The record is too large.');
@@ -11,9 +13,24 @@ export async function POST(request:Request){try{
   const saved=await db.rpc('week7_admin_set_prompt_mix',{p_rows:payload.rows});if(saved.error)throw Error(saved.error.message);return Response.json({ok:true},{headers:{'Cache-Control':'private, no-store'}});
  }
 
+ async function records(section:string):Promise<Row[]>{const result=await db.rpc('week7_admin_data',{p_section:section});if(result.error)throw Error(result.error.message);return result.data as Row[];}
  if(section==='global-model'){
-  if(action!=='update'||!payload||typeof payload!=='object'||Object.keys(payload).some(k=>!['provider_id','identifier'].includes(k))||!Number.isSafeInteger(payload.provider_id)||payload.provider_id<1||typeof payload.identifier!=='string'||!/^[a-zA-Z0-9._-]{1,100}$/.test(payload.identifier.trim()))throw Error('Choose a provider and enter a valid model name.');
-  const saved=await db.rpc('week7_admin_set_global_model',{p_provider:payload.provider_id,p_identifier:payload.identifier.trim(),p_revision:revision});if(saved.error)throw Error(saved.error.message);return Response.json({id:saved.data.model_id},{headers:{'Cache-Control':'private, no-store'}});
+  if(action!=='update'||!payload||typeof payload!=='object'||Object.keys(payload).some(k=>!['model_id','model_revision'].includes(k))||!Number.isSafeInteger(payload.model_id)||payload.model_id<1||typeof payload.model_revision!=='string'||!/^[a-f0-9]{32}$/.test(payload.model_revision))throw Error('Choose an available model from the list.');
+  const [models,providers]=await Promise.all([records('models'),records('providers')]);
+  const model=models.find(row=>row.id===payload.model_id),provider=providers.find(row=>row.id===model?.provider_id);
+  if(!model||model.revision!==payload.model_revision)throw Error('Model changed. Refresh before switching.');
+  if(!model.enabled||!provider)throw Error('Choose an available model.');
+  await validateGenerationModel(String(model.identifier),{enabled:provider.enabled,adapter:provider.adapter,credential_env:provider.credential_env});
+  const saved=await db.rpc('week7_admin_use_model',{p_model:model.id,p_model_revision:model.revision,p_provider_revision:provider.revision,p_revision:revision});if(saved.error)throw Error(saved.error.message);return Response.json({id:saved.data.model_id},{headers:{'Cache-Control':'private, no-store'}});
+ }
+ if(section==='models'&&action!=='delete'){
+  if(!payload||typeof payload!=='object'||typeof payload.identifier!=='string'||!Number.isSafeInteger(payload.provider_id))throw Error('Enter a model ID and choose a provider.');
+  const model=action==='update'?(await records('models')).find(row=>row.id===id):null;
+  if(action==='update'&&(!model||model.revision!==revision))throw Error('Model changed. Refresh before saving.');
+  if(!model||model.identifier!==payload.identifier||model.provider_id!==payload.provider_id||(!model.enabled&&payload.enabled)){
+   const provider=(await records('providers')).find(row=>row.id===payload.provider_id);if(!provider)throw Error('Choose an available Google provider.');
+   await validateGenerationModel(payload.identifier,{enabled:provider.enabled,adapter:provider.adapter,credential_env:provider.credential_env});
+  }
  }
 
  if(section==='images'&&action==='delete'){

@@ -18,7 +18,7 @@ export async function loadData(path='/'):Promise<Dataset>{
   if(section==='images')rows=rows.map(row=>({...row,category:({'week4-avatars':'Profile photo','week4-event-images':'Event photo','week7-admin-images':'Admin upload'} as Record<string,string>)[String(row.bucket)]??'Uploaded image',image_status:row.available?(row.in_use?'In use':'Available'):'Unavailable'}));
   data.week7={section,rows,lookups} as Week7Data;
   if(promptPage){const covers=await db.from('week4_covers').select('id,description,image_path');if(covers.error)throw Error('Prompt cover references could not be loaded.');data.week7.sharedPrompt=promptFor({idea:'{{user idea}}',format:'{{selected format}}',region:'{{selected area}}',tags:['{{selected interests}}']},'{{current time}}',covers.data??[]);}
-  if(section==='models'||promptPage){const global=await db.rpc('week7_admin_global_model');if(global.error||!global.data)throw Error('Global model settings could not be loaded.');data.week7.globalModel=global.data as GlobalModel;}
+  if(section==='models'||section==='providers'||promptPage){const global=await db.rpc('week7_admin_global_model');if(global.error||!global.data)throw Error('Global model settings could not be loaded.');data.week7.globalModel=global.data as GlobalModel;}
  }
  return data;
 }

@@ -19,6 +19,7 @@ await db.exec(readFileSync(root+'/supabase/migrations/20261029190000_week7_obser
 await db.exec(readFileSync(root+'/supabase/migrations/20261029200000_global_generation_model.sql','utf8'));
 await db.exec(readFileSync(root+'/supabase/migrations/20261029210000_retain_discarded_images.sql','utf8'));
 await db.exec(readFileSync(root+'/supabase/migrations/20261029220000_prompt_traffic_editor.sql','utf8'));
+await db.exec(readFileSync(root+'/supabase/migrations/20261029230000_select_catalog_model.sql','utf8'));
 console.log('Week 7 SQL compiled with global model control and upload retention');
 await db.exec(`insert into auth.users values('00000000-0000-4000-8000-000000000001','admin@columbia.edu',now(),now());insert into auth.identities values('00000000-0000-4000-8000-000000000001','google');insert into private.week6_admin_access(user_id,is_superadmin) values('00000000-0000-4000-8000-000000000001',true);`);
 await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false),set_config('request.jwt.claims','{"amr":[{"method":"oauth"}]}',false)`);
@@ -192,4 +193,21 @@ await db.query('select public.week7_admin_set_prompt_mix($1)',[JSON.stringify(pa
 after=await readMix();assert(after[0].weight===0&&after[1].weight===100,'Atomic chain switch failed');
 console.log('PASS complete percentage form: total must be 100, stale submissions roll back entirely, and active chains can be switched atomically.');
 
-await db.exec('reset role');await db.close();
+await db.exec('reset role');
+
+await identity(admin);
+const listModels=async()=>(await db.query("select public.week7_admin_data('models') rows")).rows[0].rows;
+const listProviders=async()=>(await db.query("select public.week7_admin_data('providers') rows")).rows[0].rows;
+const currentModel=async()=>(await db.query('select public.week7_admin_global_model() settings')).rows[0].settings;
+const available=(await listModels()).find(row=>row.enabled&&row.id!==(changedGlobal.model_id));
+const provider=(await listProviders()).find(row=>row.id===available.provider_id);
+const beforeSwitch=await currentModel(),beforeCount=(await listModels()).length;
+await rejects('select public.week7_admin_use_model($1,$2,$3,$4)',[available.id,'stale',provider.revision,beforeSwitch.revision]);
+await rejects('select public.week7_admin_use_model($1,$2,$3,$4)',[available.id,available.revision,'stale',beforeSwitch.revision]);
+await db.query('select public.week7_admin_use_model($1,$2,$3,$4)',[available.id,available.revision,provider.revision,beforeSwitch.revision]);
+assert((await currentModel()).model_id===available.id,'Catalog model switch failed');
+assert((await listModels()).length===beforeCount,'Switch created a model');
+await rejects('select public.week7_admin_use_model($1,$2,$3,$4)',[available.id,available.revision,provider.revision,beforeSwitch.revision]);
+await identity(student);await denied("select public.week7_admin_use_model(1,'x','x','x')");
+console.log('PASS model switching only selects an existing unchanged model; stale model/provider/settings and non-admin denied.');
+await db.close();
