@@ -1,0 +1,3 @@
+export default function ImagePlaceholder({large=false,label='Image unavailable'}:{large?:boolean;label?:string}){
+ return <span className="cover-placeholder" role="img" aria-label={label}><svg viewBox="0 0 64 56" fill="none" aria-hidden="true"><rect x="13" y="5" width="43" height="35" rx="6" transform="rotate(8 13 5)" fill="#dde5f5"/><rect x="7" y="11" width="46" height="35" rx="6" fill="#f9fbff" stroke="#91a4c6" strokeWidth="2"/><circle cx="40" cy="22" r="4" fill="#ed985c"/><path d="m11 40 12-13 10 10 5-5 11 10" stroke="#91a4c6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>{large&&<span>{label}</span>}</span>;
+}

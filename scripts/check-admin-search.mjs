@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {rowMatchesSearch} from '../lib/admin-search.ts';
+import {sectionSearch} from '../lib/week7.ts';
+import {promptPercentages} from '../lib/prompt-traffic.ts';
+const ctx={profiles:[{id:'u1',first_name:'Zian',last_name:'Zhang',email:null,login_email:'zz3402@columbia.edu'}],generations:[{id:39,output:{title:'Campus game night'},inputs:{idea:'Games with classmates'}}],events:[],lookups:{providers:[{id:1,name:'Google AI'}]}};
+const photo={id:8,label:'Event inspiration',category:'Event photo',created_by:'u1',alt_text:'Mario cover',path:'hidden-storage-path',revision:'hidden-revision'};
+assert(rowMatchesSearch(photo,'Zian Zhang',sectionSearch.images,ctx));assert(rowMatchesSearch(photo,'zz3402',sectionSearch.images,ctx));assert(rowMatchesSearch(photo,'event photo',sectionSearch.images,ctx));assert(!rowMatchesSearch(photo,'hidden-storage-path',sectionSearch.images,ctx));
+assert(rowMatchesSearch({id:1,name:'Flash',identifier:'gemini-flash',provider_id:1},'Google',sectionSearch.models,ctx));
+assert(rowMatchesSearch({id:25,generation_id:39,user_id:'u1',source:'consumer'},'#25 game night',sectionSearch['generation-requests'],ctx));
+assert(rowMatchesSearch({id:2,request_id:25,model:'gemini-flash',response_text:'A campus game night'},'game night',sectionSearch['llm-responses'],ctx));
+assert(rowMatchesSearch({id:2,title:'Study example',input:'Meet classmates',output:{title:'Library meetup',description:'Study together'}},'Library',sectionSearch.examples,ctx));
+assert.deepEqual(promptPercentages([{id:1,weight:100},{id:2,weight:0}]),{1:100,2:0});
+const normalized=promptPercentages([{id:1,weight:1},{id:2,weight:1},{id:3,weight:1}]);assert.equal(Object.values(normalized).reduce((a,b)=>a+b,0),100);assert.deepEqual(normalized,{1:34,2:33,3:33});
+console.log('PASS page-specific search resolves uploaders, provider names, activity titles and response text; ignores hidden storage fields; usage percentages total 100.');
