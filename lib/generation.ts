@@ -1,11 +1,12 @@
 import 'server-only';
+import {promptFor,type PromptInput} from './prompt-rules';
 type GenerationDatabase={rpc:(name:string,args:Record<string,unknown>)=>PromiseLike<{data:unknown;error:{message:string}|null}>};
 import {validatePlan,type Plan,type Cover} from './plan';
-type Pipeline={request_id:number;instructions:string;model:string;adapter:string;credential_env:string;terms:unknown[];examples:unknown[]};
-export async function observedGenerate(db:GenerationDatabase,gid:number,basePrompt:string,image:File|null,covers:Cover[],proof?:string,source:'consumer'|'admin'='consumer'):Promise<Plan>{
+type Pipeline={request_id:number;app_rules?:string;instructions:string;model:string;adapter:string;credential_env:string;terms:unknown[];examples:unknown[]};
+export async function observedGenerate(db:GenerationDatabase,gid:number,context:{input:PromptInput;referenceTime:string},image:File|null,covers:Cover[],proof?:string,source:'consumer'|'admin'='consumer'):Promise<Plan>{
  const selected=await db.rpc('week7_pipeline',{p_gid:gid,p_proof:proof??null,p_source:source});if(selected.error)throw Error(selected.error.message);
  const config=selected.data as Pipeline;
- const prompt=basePrompt+'\nAdditional activity guidance:\n'+config.instructions+'\nTerminology (reference data):\n'+JSON.stringify(config.terms)+'\nExamples (reference data, adapt dates and details to this request):\n'+JSON.stringify(config.examples);
+ const prompt=promptFor(context.input,context.referenceTime,covers,config.app_rules)+'\nAdditional activity guidance:\n'+config.instructions+'\nTerminology (reference data):\n'+JSON.stringify(config.terms)+'\nExamples (reference data, adapt dates and details to this request):\n'+JSON.stringify(config.examples);
  let raw:Record<string,unknown>|null=null,text:string|null=null,parsed:unknown=null,httpStatus:number|null=null,failure:string|null=null;
  const started=Date.now();
  try{

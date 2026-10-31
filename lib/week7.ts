@@ -1,6 +1,6 @@
 export type Row={id:number;revision?:string;[key:string]:unknown};
 export type GlobalModel={model_id:number;provider_id:number;identifier:string;provider:string;revision:string;updated_at:string};
-export type Week7Data={sharedPrompt?:string;globalModel?:GlobalModel;section:string;rows:Row[];lookups:Record<string,Row[]>};
+export type Week7Data={appRules?:{template:string;revision:string};activity?:import('./ai-activity').ActivityTrace[];sharedPrompt?:string;globalModel?:GlobalModel;section:string;rows:Row[];lookups:Record<string,Row[]>};
 export type Field={key:string;label:string;type?:'text'|'textarea'|'number'|'boolean'|'json'|'select';required?:boolean;max?:number;options?:string[];reference?:string};
 export type Section={title:string;columns:string[];fields?:Field[];updateOnly?:boolean;description?:string};
 const enabled:Field={key:'enabled',label:'Enabled',type:'boolean'};
@@ -16,20 +16,20 @@ export const sections:Record<string,Section>={
  'whitelisted-emails':{title:'Whitelisted emails',columns:['email','enabled','created_at'],fields:[{key:'email',label:'Email address',required:true,max:254},enabled]},
  'generation-requests':{title:'Generation requests',columns:['generation_id','user_id','chain_id','source','status','created_at']},
  'llm-responses':{title:'LLM responses',description:'Older generations have saved outputs only. Full responses and timing are recorded for new requests.',columns:['request_id','model','source','latency_ms','http_status','error','created_at']},
- images:{title:'Uploaded images',description:'User avatars, event photos and admin uploads.',columns:['preview','label','category','created_by','image_status'],fields:[{key:'label',label:'Name',required:true,max:120},{key:'alt_text',label:'Description',type:'textarea',max:500}]},
+ images:{title:'Uploaded images',description:'User avatars, event photos and admin uploads.',columns:['preview','label','category','created_by'],fields:[{key:'label',label:'Name',required:true,max:120},{key:'alt_text',label:'Description',type:'textarea',max:500}]},
  'ai-media':{title:'AI generated media',columns:['title','status','user_id','model','created_at']}
 };
-export const labels:Record<string,string>={model_status:'Status',input:'Sample request',definition:'Meaning',created_by:'Uploaded by',category:'Type',image_status:'Status',chain_id:'Prompt chain',model_id:'Model',provider_id:'Provider',user_id:'User',generation_id:'Generation',request_id:'Request',credential_env:'Credential',latency_ms:'Time · ms',http_status:'HTTP status',in_use:'In use',alt_text:'Description',created_at:'Created',completed_at:'Completed',response_text:'Response text',response_json:'Parsed response',raw_response:'Raw response'};
+export const labels:Record<string,string>={label:'Name',model_status:'Status',input:'Sample request',definition:'Meaning',created_by:'Uploaded by',category:'Type',image_status:'Status',chain_id:'Prompt chain',model_id:'Model',provider_id:'Provider',user_id:'User',generation_id:'Generation',request_id:'Request',credential_env:'Credential',latency_ms:'Time · ms',http_status:'HTTP status',in_use:'In use',alt_text:'Description',created_at:'Created',completed_at:'Completed',response_text:'Response text',response_json:'Parsed response',raw_response:'Raw response'};
 export const labelFor=(key:string)=>labels[key]??key.replaceAll('_',' ').replace(/^./,x=>x.toUpperCase());
 
 export type WorkspaceGroup={key:string;label:string;href:string;icon:'image'|'activity'|'spark'|'settings';sections:{key:string;label:string}[]};
 export const workspaceGroups:WorkspaceGroup[]=[
  {key:'uploads',label:'Uploads',href:'/images',icon:'image',sections:[{key:'images',label:'Images'}]},
- {key:'activity',label:'AI activity',href:'/generation-requests',icon:'activity',sections:[{key:'generation-requests',label:'Requests'},{key:'llm-responses',label:'Responses'}]},
+ {key:'activity',label:'AI activity',href:'/generation-requests',icon:'activity',sections:[{key:'generation-requests',label:'AI activity'}]},
  {key:'prompts',label:'Prompts',href:'/prompt-mix',icon:'spark',sections:[{key:'prompt-mix',label:'Setup'},{key:'terms',label:'Terms'},{key:'examples',label:'Examples'}]},
  {key:'settings',label:'Settings',href:'/models',icon:'settings',sections:[{key:'models',label:'Models'},{key:'providers',label:'Providers'},{key:'signup-domains',label:'Signup domains'},{key:'whitelisted-emails',label:'Email whitelist'}]}
 ];
-export const groupForSection=(section:string)=>workspaceGroups.find(group=>group.sections.some(item=>item.key===section)||(['prompt-chains','prompt-steps'].includes(section)&&group.key==='prompts'));
+export const groupForSection=(section:string)=>workspaceGroups.find(group=>group.sections.some(item=>item.key===section)||(['prompt-chains','prompt-steps'].includes(section)&&group.key==='prompts')||(section==='llm-responses'&&group.key==='activity'));
 
 export const sectionSearch:Record<string,import('./admin-search').SearchSpec>={
  "images": {

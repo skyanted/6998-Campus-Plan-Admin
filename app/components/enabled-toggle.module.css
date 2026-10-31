@@ -1,0 +1,7 @@
+.toggle { display: inline-flex; align-items: center; gap: 8px; padding: 7px 0; border: 0; background: transparent; color: #7d8ba0; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.toggle:disabled { cursor: default; opacity: .6; }
+.track { position: relative; display: block; flex-shrink: 0; width: 30px; height: 18px; border-radius: 20px; background: #c7d0dd; transition: background .15s; }
+.track[data-enabled=true] { background: #289e78; }
+.thumb { position: absolute; top: 3px; left: 3px; display: grid; place-items: center; width: 12px; height: 12px; border-radius: 50%; background: white; color: #27936f; transition: transform .15s; }
+.track[data-enabled=true] .thumb { transform: translateX(12px); }
+.toggle:focus-visible { outline: 2px solid #3659e3; outline-offset: 4px; border-radius: 3px; }

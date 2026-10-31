@@ -20,6 +20,8 @@ await db.exec(readFileSync(root+'/supabase/migrations/20261029200000_global_gene
 await db.exec(readFileSync(root+'/supabase/migrations/20261029210000_retain_discarded_images.sql','utf8'));
 await db.exec(readFileSync(root+'/supabase/migrations/20261029220000_prompt_traffic_editor.sql','utf8'));
 await db.exec(readFileSync(root+'/supabase/migrations/20261029230000_select_catalog_model.sql','utf8'));
+await db.exec(readFileSync(root+'/supabase/migrations/20261030010000_prompt_workshop_controls.sql','utf8'));
+await db.exec(readFileSync(root+'/supabase/migrations/20261031010000_edit_prompt_chain.sql','utf8'));
 console.log('Week 7 SQL compiled with global model control and upload retention');
 await db.exec(`insert into auth.users values('00000000-0000-4000-8000-000000000001','admin@columbia.edu',now(),now());insert into auth.identities values('00000000-0000-4000-8000-000000000001','google');insert into private.week6_admin_access(user_id,is_superadmin) values('00000000-0000-4000-8000-000000000001',true);`);
 await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false),set_config('request.jwt.claims','{"amr":[{"method":"oauth"}]}',false)`);
@@ -210,4 +212,87 @@ assert((await listModels()).length===beforeCount,'Switch created a model');
 await rejects('select public.week7_admin_use_model($1,$2,$3,$4)',[available.id,available.revision,provider.revision,beforeSwitch.revision]);
 await identity(student);await denied("select public.week7_admin_use_model(1,'x','x','x')");
 console.log('PASS model switching only selects an existing unchanged model; stale model/provider/settings and non-admin denied.');
+
+// Workshop configuration: real permissions, atomic creation and captured runtime values.
+await db.exec('set role authenticated');await identity(student);
+await denied('select public.week7_admin_app_rules()');
+await denied("select public.week7_admin_set_app_rules('x','x')");
+await denied("select public.week7_admin_create_chain('{}')");
+await denied('select * from private.week7_app_rules');
+await identity(admin,false);await denied('select public.week7_admin_app_rules()');
+await identity(admin);
+let rules=(await db.query('select public.week7_admin_app_rules() r')).rows[0].r;
+assert(rules.template.includes('{{current_time}}')&&rules.revision.length===32,'Default rules unavailable');
+const updatedRules=rules.template+'\nWorkshop fixture guidance.';
+await rejects('select public.week7_admin_set_app_rules($1,$2)',['No variables',rules.revision]);
+await db.query('select public.week7_admin_set_app_rules($1,$2)',[updatedRules,rules.revision]);
+await rejects('select public.week7_admin_set_app_rules($1,$2)',[rules.template,rules.revision]);
+assert((await db.query('select public.week7_admin_app_rules() r')).rows[0].r.template===updatedRules,'Stale rule update overwrote newer rules');
+const previousMix=await readMix();
+await rejects("select public.week7_admin_create_chain('{\"name\":\"Bad\",\"instructions\":\"\"}')");
+await rejects("select public.week7_admin_create_chain('{\"name\":\"Bad\",\"instructions\":\"x\",\"weight\":100}')");
+const chainPayload={name:'Workshop fixture chain',description:'Fixture',instructions:'Use the captured workshop instruction.'};
+const chain=(await db.query('select public.week7_admin_create_chain($1) r',[JSON.stringify(chainPayload)])).rows[0].r;
+await rejects('select public.week7_admin_create_chain($1)',[JSON.stringify(chainPayload)]);
+const addedMix=await readMix(),addedStep=(await db.query("select public.week7_admin_data('prompt-steps') rows")).rows[0].rows.find(row=>row.chain_id===chain.id);
+assert(addedMix.length===previousMix.length+1&&addedMix.find(row=>row.chain_id===chain.id).weight===0,'New chain changed existing traffic');
+assert(previousMix.every(row=>addedMix.find(next=>next.id===row.id).weight===row.weight),'Existing traffic weights changed');
+assert(addedStep?.position===1&&addedStep.instructions===chainPayload.instructions,'New chain step missing');
+await db.query('select public.week7_admin_set_prompt_mix($1)',[JSON.stringify(addedMix.map(row=>({id:row.id,revision:row.revision,weight:row.chain_id===chain.id?100:0})))]);
+const enabledTerm=(await db.query("select public.week7_admin_save('terms','create',null,'{\"term\":\"Enabled fixture\",\"definition\":\"Include me\"}') r")).rows[0].r;
+const disabledTerm=(await db.query("select public.week7_admin_save('terms','create',null,'{\"term\":\"Disabled fixture\",\"definition\":\"Exclude me\",\"enabled\":false}') r")).rows[0].r;
+const enabledExample=(await db.query("select public.week7_admin_save('examples','create',null,$1) r",[JSON.stringify({title:'Enabled fixture',input:'Enabled sample',output:plan})])).rows[0].r;
+const disabledExample=(await db.query("select public.week7_admin_save('examples','create',null,$1) r",[JSON.stringify({title:'Disabled fixture',input:'Disabled sample',output:plan,enabled:false})])).rows[0].r;
+const snapshots=[];
+for(const [uid,source,proof] of [[admin,'admin',null],[student,'consumer','fixture-proof']]){
+ await db.exec('reset role');
+ const nextGid=(await db.query("insert into public.week4_ai_generations(user_id,inputs,prompt,model,status) values($1,'{}','Workshop fixture','fixture','pending') returning id",[uid])).rows[0].id;
+ await db.exec('set role authenticated');await identity(uid);
+ const pipeline=(await db.query('select public.week7_pipeline($1,$2,$3) r',[nextGid,proof,source])).rows[0].r;
+ assert(pipeline.chain_id===chain.id&&pipeline.instructions===chainPayload.instructions,'Selected added chain was ignored');
+ assert(pipeline.app_rules===updatedRules,'Global rules not captured for '+source);
+ assert(pipeline.terms.some(t=>t.term===enabledTerm.term)&&!pipeline.terms.some(t=>t.term===disabledTerm.term),'Term toggle not used by '+source);
+ assert(pipeline.examples.some(e=>e.input===enabledExample.input)&&!pipeline.examples.some(e=>e.input===disabledExample.input),'Example toggle not used by '+source);
+ snapshots.push(pipeline);
+}
+await identity(admin);
+for(const [section,row] of [['terms',enabledTerm],['examples',enabledExample]]){
+ const current=(await db.query('select public.week7_admin_data($1) rows',[section])).rows[0].rows.find(item=>item.id===row.id);
+ await db.query("select public.week7_admin_save($1,'update',$2,'{\"enabled\":false}',$3)",[section,row.id,current.revision]);
+ await rejects("select public.week7_admin_save($1,'update',$2,'{\"enabled\":true}',$3)",[section,row.id,current.revision]);
+}
+const snapRows=(await db.query("select public.week7_admin_data('generation-requests') rows")).rows[0].rows;
+assert(snapshots.every(snapshot=>snapRows.find(row=>row.id===snapshot.request_id).snapshot.app_rules===updatedRules),'Configuration edits changed historical snapshots');
+console.log('PASS workshop rules and chain creation: Google superadmin guard, stale/invalid saves, atomic chain + step + zero-weight mix, both applications use captured rules and enabled references, history preserved.');
+
+
+// Chain edits save metadata and the real generation instruction together.
+await identity(admin);
+const readChains=async()=>(await db.query("select public.week7_admin_data('prompt-chains') rows")).rows[0].rows;
+const readSteps=async()=>(await db.query("select public.week7_admin_data('prompt-steps') rows")).rows[0].rows;
+const initialChain=(await readChains()).find(row=>row.id===chain.id);
+const initialStep=(await readSteps()).find(row=>row.chain_id===chain.id);
+const mixBeforeEdit=await readMix();
+const editedPayload={name:'Edited workshop chain',description:'Edited description',instructions:'Use the edited generation instruction.'};
+await db.query('select public.week7_admin_update_chain($1,$2,$3,$4,$5)',[chain.id,initialChain.revision,initialStep.id,initialStep.revision,JSON.stringify(editedPayload)]);
+const editedChain=(await readChains()).find(row=>row.id===chain.id),editedStep=(await readSteps()).find(row=>row.id===initialStep.id);
+assert(editedChain.name===editedPayload.name&&editedChain.description===editedPayload.description&&editedStep.instructions===editedPayload.instructions,'Chain edits not saved');
+assert(JSON.stringify(await readMix())===JSON.stringify(mixBeforeEdit),'Editing changed chain traffic');
+await rejects('select public.week7_admin_update_chain($1,$2,$3,$4,$5)',[chain.id,initialChain.revision,initialStep.id,initialStep.revision,JSON.stringify(editedPayload)]);
+await rejects('select public.week7_admin_update_chain($1,$2,$3,$4,$5)',[chain.id,editedChain.revision,initialStep.id,initialStep.revision,JSON.stringify(editedPayload)]);
+const other=(await readChains()).find(row=>row.id!==chain.id),otherStep=(await readSteps()).find(row=>row.chain_id===other.id);
+await rejects('select public.week7_admin_update_chain($1,$2,$3,$4,$5)',[chain.id,editedChain.revision,otherStep.id,otherStep.revision,JSON.stringify(editedPayload)]);
+await rejects('select public.week7_admin_update_chain($1,$2,$3,$4,$5)',[chain.id,editedChain.revision,editedStep.id,editedStep.revision,JSON.stringify({...editedPayload,name:other.name,instructions:'Must not save'})]);
+assert((await readSteps()).find(row=>row.id===initialStep.id).instructions===editedPayload.instructions,'Failed edit changed instructions');
+const historyAfterEdit=(await db.query("select public.week7_admin_data('generation-requests') rows")).rows[0].rows;
+assert(snapshots.every(snapshot=>historyAfterEdit.find(row=>row.id===snapshot.request_id).snapshot.instructions===chainPayload.instructions),'Chain edit rewrote historical instructions');
+await db.exec('reset role');
+const editGid=(await db.query("insert into public.week4_ai_generations(user_id,inputs,prompt,model,status) values($1,'{}','Edited chain fixture','fixture','pending') returning id",[admin])).rows[0].id;
+await db.exec('set role authenticated');await identity(admin);
+const editedPipeline=(await db.query("select public.week7_pipeline($1,null,'admin') r",[editGid])).rows[0].r;
+assert(editedPipeline.instructions===editedPayload.instructions,'New generation ignored edited instruction');
+await identity(student);await denied("select public.week7_admin_update_chain(1,'x',1,'x','{}')");
+await identity(admin,false);await denied("select public.week7_admin_update_chain(1,'x',1,'x','{}')");
+console.log('PASS chain editing: metadata and instruction saved atomically; stale chain/step, mismatched step, duplicate name and unauthorized session rejected; traffic and history preserved; new generations use the edit.');
+
 await db.close();
