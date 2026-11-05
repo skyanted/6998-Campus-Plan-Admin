@@ -41,18 +41,17 @@ function UserCard({activity}:{activity:ActivityTrace}){
 }
 function PromptCard({activity,response,number,chain,previousOutput}:{activity:ActivityTrace;response?:Row;number:number;chain:string;previousOutput?:unknown}){
  const context=response?responseContext(activity,response):asRecord(activity.request.snapshot),input=response?inputBreakdown(activity,response):null,previous=number===2?(input?.userInput??activity.generation?.inputs):previousOutput;
- const rules=input?.applicationRules, instruction=input?.chainInstructions??context?.instructions;
+ const hasContext=!(response?.step_index!=null&&context?.app_rules==null),rules=input?.applicationRules, instruction=input?.chainInstructions??context?.instructions;
  return <Card number={number} title="Build model input" input={<RawData value={previous}/>} assembly={<Addends items={[
  <Disclosure key="input" title="Input"><RawData value={previous}/></Disclosure>,
- <Disclosure key="rules" title="App rules"><RawData value={rules??undefined}/></Disclosure>,
+ ...(hasContext?[<Disclosure key="rules" title="App rules"><RawData value={rules??undefined}/></Disclosure>]:[]),
  <Disclosure key="chain" title={'Chain · '+chain}><RawData value={instruction??undefined}/></Disclosure>,
- <ReferencePart key="terms" context={context} kind="terms"/>,
- <ReferencePart key="examples" context={context} kind="examples"/>
- ]}/>} output={<><RawData value={response?.prompt??undefined}/></>}/>;
+ ...(hasContext?[<ReferencePart key="terms" context={context} kind="terms"/>,<ReferencePart key="examples" context={context} kind="examples"/>]:[])
+ ]}/>} output={<><RawData value={response?.system_message?{system:response.system_message,user:response.prompt}:response?.prompt??undefined}/></>}/>;
 }
 function ReplyCard({activity,response,number}:{activity:ActivityTrace;response?:Row;number:number}){
  const input=response?inputBreakdown(activity,response):null,output=response?.response_json??response?.response_text??undefined;
- return <Card number={number} title="Model reply" reply input={<><RawData value={response?.prompt??undefined}/></>} assembly={<Disclosure title="Model"><RawData value={input?.role==='user'?{model:response?.model??activity.model,request_role:'user',system_message:null}:response?.model??activity.model}/></Disclosure>} output={<>{response?.error!=null&&<p className={styles.error}>{String(response.error)}</p>}<RawData value={output}/><Disclosure title="Full response" value={response?.raw_response}/></>}/>;
+ return <Card number={number} title="Model reply" reply input={<><RawData value={response?.system_message?{system:response.system_message,user:response.prompt}:response?.prompt??undefined}/></>} assembly={<Disclosure title="Model"><RawData value={input?.role==='user'?{model:response?.model??activity.model,request_role:'user',system_message:null}:response?.model??activity.model}/></Disclosure>} output={<>{response?.error!=null&&<p className={styles.error}>{String(response.error)}</p>}<RawData value={output}/><Disclosure title="Full response" value={response?.raw_response}/></>}/>;
 }
 export default function ActivityTraceDialog({activity,data,admin,week7,close}:{activity:ActivityTrace;data:Dataset;admin:Admin;week7:Week7Data;close:()=>void}){
  const ref=useRef<HTMLDialogElement>(null),request=activity.request,snapshot=asRecord(request.snapshot),profile=data.profiles.find(person=>person.id===request.user_id),chain=week7.lookups['prompt-chains']?.find(row=>row.id===request.chain_id),chainName=display(snapshot?.chain_name??chain?.name,request.chain_id?'Chain #'+request.chain_id:'Not recorded'),replies=activity.responses.length?activity.responses:[undefined],count=1+replies.length*2;
