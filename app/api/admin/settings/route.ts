@@ -8,6 +8,10 @@ export async function POST(request:Request){try{
  const value=await request.json(),{section,action,id,payload,revision}=value;
  if(typeof section!=='string'||!['create','update','delete'].includes(action)||(action!=='create'&&section!=='prompt-traffic'&&(!Number.isSafeInteger(id)||id<1||typeof revision!=='string'||!/^[a-f0-9]{32}$/.test(revision))))throw Error('Invalid request.');
  const db=await authClient();
+ if(section==='app-rule-block'){
+  if(action!=='update'||!payload||!['activity','output'].includes(payload.key)||typeof payload.text!=='string'||payload.text.length>8000)throw Error('Enter valid rules.');
+  const saved=await db.rpc('studio_command',{action:'library-save',p:{section:'rules',id:payload.key,text:payload.text,revision}});if(saved.error)throw Error(saved.error.message);return Response.json({ok:true});
+ }
  if(section==='app-rules'){
   if(action!=='update'||id!==1||!payload||typeof payload!=='object'||Object.keys(payload).some(key=>key!=='template')||typeof payload.template!=='string'||!payload.template.trim()||payload.template.length>10000)throw Error('Enter app rules up to 10000 characters.');
   const saved=await db.rpc('week7_admin_set_app_rules',{p_template:payload.template,p_revision:revision});if(saved.error)throw Error(saved.error.message);return Response.json({ok:true},{headers:{'Cache-Control':'private, no-store'}});

@@ -1,6 +1,6 @@
 export type Row={id:number;revision?:string;[key:string]:unknown};
 export type GlobalModel={model_id:number;provider_id:number;identifier:string;provider:string;revision:string;updated_at:string};
-export type Week7Data={appRules?:{template:string;revision:string};activity?:import('./ai-activity').ActivityTrace[];sharedPrompt?:string;globalModel?:GlobalModel;section:string;rows:Row[];lookups:Record<string,Row[]>};
+export type Week7Data={ruleBlocks?:{id:string;name:string;text:string}[];rulesRevision?:string;appRules?:{template:string;revision:string};activity?:import('./ai-activity').ActivityTrace[];sharedPrompt?:string;globalModel?:GlobalModel;section:string;rows:Row[];lookups:Record<string,Row[]>};
 export type Field={key:string;label:string;type?:'text'|'textarea'|'number'|'boolean'|'json'|'select';required?:boolean;max?:number;options?:string[];reference?:string};
 export type Section={title:string;columns:string[];fields?:Field[];updateOnly?:boolean;description?:string};
 const enabled:Field={key:'enabled',label:'Enabled',type:'boolean'};
